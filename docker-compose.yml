@@ -1,0 +1,68 @@
+version: '3.2'
+services:
+  zag:
+    image: zag
+    container_name: zag
+    networks:
+      - zag
+    restart: always
+    build:
+      context: .
+    environment:
+      - SCHEMA=zag
+      - SERVER_ADDRESS=zag:6464
+      - QUEUE_ADDRESS=amqp://user:password@rabbitmq:5672
+      - HASURA_GRAPHQL_ADMIN_SECRET=""
+      - HASURA_ADDRESS=http://hasura:8080
+    ports:
+      - 6464:6464
+
+  rabbitmq:
+    image: rabbitmq:3.8.9-management-alpine
+    container_name: zag_rabbitmq
+    networks:
+      - zag
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=password
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  hasura:
+    image: hasura/graphql-engine:v1.3.2
+    container_name: zag_hasura
+    restart: always
+    networks:
+      - zag
+    environment:
+      - HASURA_GRAPHQL_DATABASE_URL=postgresql://user:password@postgres:5432/zag?sslmode=disable
+      - HASURA_GRAPHQL_ENABLE_CONSOLE=true
+      - HASURA_GRAPHQL_ENABLED_LOG_TYPES=startup, http-log, webhook-log, websocket-log, query-log
+      - HASURA_GRAPHQL_ENABLE_TELEMETRY=false
+    ports:
+      - 8080:8080
+
+  postgres:
+    image: postgres:12
+    container_name: zag_postgres
+    restart: always
+    networks:
+      - zag
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=zag
+    volumes:
+      - zag_postgres_data:/var/lib/postgresql/data
+    ports:
+      - 5432
+
+networks:
+  zag:
+    driver: overlay
+    attachable: true
+
+volumes:
+  zag_postgres_data:
+    driver: local
